@@ -1,229 +1,90 @@
-# Saxophone 🎷
+# async-saxophone
 
-Fast and lightweight event-driven streaming XML parser in pure JavaScript.
+Fast and lightweight asynchonous XML parser in pure JavaScript.
 
-[![npm version](https://img.shields.io/npm/v/saxophone.svg?style=flat-square)](https://www.npmjs.com/package/saxophone)
-[![npm downloads](https://img.shields.io/npm/dm/saxophone.svg?style=flat-square)](https://www.npmjs.com/package/saxophone)
-[![build status](https://img.shields.io/travis/matteodelabre/saxophone.svg?style=flat-square)](https://travis-ci.org/matteodelabre/saxophone)
-[![coverage](https://img.shields.io/coveralls/matteodelabre/saxophone.svg?style=flat-square)](https://coveralls.io/github/matteodelabre/saxophone)
-[![dependencies status](http://img.shields.io/david/matteodelabre/saxophone.svg?style=flat-square)](https://david-dm.org/matteodelabre/saxophone)
+Async-saxophone is based upon [Saxophone](https://github.com/matteodelabre/saxophone), which, in turn, is inspired by SAX parsers such as [sax-js](https://github.com/isaacs/sax-js) and [EasySax](https://github.com/vflash/easysax): unlike most XML parsers, but like Saxophone, async-saxophone does not create a Document Object Model ([DOM](https://en.wikipedia.org/wiki/Document_Object_Model)) tree as a result of parsing documents.
 
-Saxophone is inspired by SAX parsers such as [sax-js](https://github.com/isaacs/sax-js) and [EasySax](https://github.com/vflash/easysax): unlike most XML parsers, it does not create a Document Object Model ([DOM](https://en.wikipedia.org/wiki/Document_Object_Model)) tree as a result of parsing documents.
-Instead, it emits events for each tag or text node encountered as the parsing goes on, which makes it an online algorithm.
-This means that Saxophone has a low memory footprint, can easily parse large documents, and can parse documents as they come from a stream.
+Instead, it implements an async iterator. Async-saxophone takes as input an XML document in the form of a string or any iterator, including a stream. It parses the XML and then outputs the nodes (tags, text, comments, etc) encountered as they are parsed. As an async iterator, it is suitable for iteration using `for await...of`.
 
-The parser does not keep track of the document state while parsing and, in particular, does not check whether the document is well-formed or valid, making it super-fast (see the [benchmark](#Benchmark) below).
+Async-saxophone was developed to assure that a new chunk of XML is not taken from its input until all nodes encountered have been processed, even if there is delay in processing. The asynchronous design assures synchronization of input and output.
 
-This library is best suited when you need to extract simple data out of an XML document that you know is well-formed. The parser will not report precise errors in case of syntax problems. An example would be reading data from an API endpoint.
+The async-saxophone parser is based upon the Saxophone parser and inherits its light weight and speed. It does not maintain document state nor check the validity of the document. Modifications to the Saxophone parser include structuring it as an async generator function, substituting `yield` for `emit`, expecting an input string or iterator as an argument, rather than being piped to, and representing each node as a tuple-like array.
+
+The parser does not parse the attribute string in a tag nor does it parse entities in text. `Saxophone`'s `parseAttrs` and `parseEntities` functions are exported as a convenience for parsing attribute strings into an object and for parsing entities.
 
 ## Installation
 
-This library works both in Node.JS ≥6.0 and recent browsers.
+This package requires Node.JS 10.0 or later. It may also work in recent browsers that support async generator functions and `for await...of`.
 To install with `npm`:
 
 ```sh
-$ npm install --save saxophone
-```
-
-## Benchmark
-
-This benchmark compares the performance of four of the most popular SAX parsers against Saxophone’s performance while parsing a 21 KB document. Below are the results when run on a Intel® Core™ i7-7500U processor (2.70GHz, 2 physical cores with 2 logical cores each).
-
-Library            | Version | Operations per second (higher is better)
--------------------|--------:|----------------------------------------:
-**Saxophone**      |   0.5.0 |                         **6,797 ±2.99%**
-**EasySax**        |   0.3.2 |                         **7,919 ±1.21%**
-node-expat         |  2.3.18 |                               904 ±1.77%
-libxmljs.SaxParser |  0.19.7 |                               869 ±0.98%
-sax-js             |   1.2.4 |                               634 ±2.01%
-
-```sh
-$ git clone https://github.com/matteodelabre/saxophone.git
-$ cd saxophone
-$ npm install
-$ npm install --no-save easysax node-expat libxmljs sax
-$ npm run benchmark
+$ npm install async-saxophone
 ```
 
 ## Tests and coverage
 
-To run tests and check coverage, use the following commands:
+To run tests, use the following commands:
 
 ```sh
-$ git clone https://github.com/matteodelabre/saxophone.git
-$ cd saxophone
+$ git clone https://github.com/randymized/async-saxophone.git
+$ cd async-saxophone
 $ npm install
 $ npm test
-$ npm run coverage
 ```
 
-## Examples
-
-### Simple example
+## Example
 
 ```js
-const Saxophone = require('saxophone');
-const parser = new Saxophone();
+const {xmlNodeGenerator} = require('async-saxophone');
+const delay = ms => new Promise(_ => setTimeout(_, ms));
 
-// Called whenever an opening tag is found in the document,
-// such as <example id="1" /> - see below for a list of events
-parser.on('tagopen', tag => {
-    console.log(
-        `Open tag "${tag.name}" with attributes: ${JSON.stringify(Saxophone.parseAttrs(tag.attrs))}.`
-    );
-});
+const xml = '<root><example id="1" /><example id="2" /></root>'
 
-// Called when we are done parsing the document
-parser.on('finish', () => {
-    console.log('Parsing finished.');
-});
-
-// Triggers parsing - remember to set up listeners before
-// calling this method
-parser.parse('<root><example id="1" /><example id="2" /></root>');
+async function main() {
+    for await (let node of xmlNodeGenerator(xml)) {
+        console.dir(node);
+        await delay(500);
+    }
+}
+main().catch(console.error)
 ```
 
 Output:
 
 ```sh
-Open tag "root" with attributes: {}.
-Open tag "example" with attributes: {"id":"1"}.
-Open tag "example" with attributes: {"id":"2"}.
-Parsing finished.
+[ 'tagopen', 'root', '', '' ]
+[ 'tagopen', 'example', 'id="1"', '/' ]
+[ 'tagopen', 'example', 'id="2"', '/' ]
+[ 'tagclose', 'root' ]
 ```
 
-### Streaming example
+### Exports:
 
-Same example as above but with `Stream`s.
+`const {xmlNodeGenerator,parseAttrs,parseEntities}= require('async-saxophone');`
 
-```js
-const Saxophone = require('saxophone');
-const parser = new Saxophone();
 
-// Called whenever an opening tag is found in the document,
-// such as <example id="1" /> - see below for a list of events
-parser.on('tagopen', tag => {
-    console.log(
-        `Open tag "${tag.name}" with attributes: ${JSON.stringify(Saxophone.parseAttrs(tag.attrs))}.`
-    );
-});
+- **`xmlNodeGenerator(iterator)`** is an async generator function.
+It takes as an argument any iterator over an XML document.
+It returns an async iterator over then nodes encountered as the document is parsed.
 
-// Called when we are done parsing the document
-parser.on('finish', () => {
-    console.log('Parsing finished.');
-});
+- **parseAttrs**
+As a convenience, [Saxophone.parseAttrs](https://www.npmjs.com/package/saxophone#saxophoneparseattrsattrs) is exported by this package. It parses a string of XML attributes, such as would be output as a result of parsing an opening tag.
 
-// stdin is '<root><example id="1" /><example id="2" /></root>'
-process.stdin.setEncoding('utf8');
-process.stdin.pipe(parser);
-```
+- **parseEntities**
+As a convenience, [Saxophone.parseEntities](https://www.npmjs.com/package/saxophone#saxophoneparseentitiestext) is exported by this package. It expands all XML entities in a string to the characters represented by the entities.
 
-Output:
+### Output:
 
-```sh
-Open tag "root" with attributes: {}.
-Open tag "example" with attributes: {"id":"1"}.
-Open tag "example" with attributes: {"id":"2"}.
-Parsing finished.
-```
+`xmlNodeGenerator` is an async generator function, it implements an iterator over the nodes encountered during parsing. The types of nodes and their representation is as follows:
 
-## Documentation
-
-### `new Saxophone()`
-
-Creates a new Saxophone parser instance. This object is a writable stream that will emit an event for each tag or node parsed from the incoming data. See [the list of events below.](#events)
-
-### `Saxophone#on()`, `Saxophone#removeListener()`, ...
-
-Manage event listeners just like with any other event emitter. Saxophone inherits from all `EventEmitter` methods. See the relevant [Node documentation.](https://nodejs.org/api/events.html)
-
-### `Saxophone#parse(xml)`
-
-Trigger the parsing of a whole document. This method will fire registered listeners, so you need to set them up before calling it. This is equivalent to writing `xml` to the stream and closing it.
-
-**Note:** the parser cannot be reused afterwards, you need to create a new instance.
-
-Arguments:
-
-* `xml` is an UTF-8 string or a `Buffer` containing the XML that you want to parse.
-
-This method returns the parser instance.
-
-### `Saxophone#write(xml)`
-
-Parse a chunk of a XML document. This method will fire registered listeners so you need to set them up before calling it.
-
-**Note:** an event is emitted for a tag or a node only when it has been closed. If the chunk starts a tag but does not close it, the tag will not be reported until it is closed by a later chunk.
-
-Arguments:
-
-* `xml` is an UTF-8 string or a `Buffer` containing a chunk of the XML that you want to parse.
-
-### `Saxophone#end(xml = "")`
-
-Write an optional last chunk then close the stream. After the stream is closed, a final `finish` event is emitted and no other event will be emitted afterwards. No more data may be written into the stream after closing it.
-
-Arguments:
-
-* `xml` is an UTF-8 string or a `Buffer` containing a chunk of the XML that you want to parse.
-
-### `Saxophone.parseAttrs(attrs)`
-
-Parse a string list of XML attributes, as produced by the main parsing algorithm. This is not done automatically because it may not be required for every tag and it takes some time.
-
-The result is an object associating the attribute names (as object keys) to their attribute values (as object values).
-
-### `Saxophone.parseEntities(text)`
-
-Parses a piece of XML text and expands all XML entities inside it to the character they represent. Just like attributes, this is not parsed automatically because it takes some time.
-
-This ignores invalid entities, including unrecognized ones, leaving them as-is.
-
-### Events
-
-#### `tagopen`
-
-Emitted when an opening tag is parsed. This encompasses both regular tags and self-closing tags. An object is passed with the following data:
-
-* `name`: name of the parsed tag.
-* `attrs`: attributes of the tag (as a string). To parse this string, use `Saxophone.parseAttrs`.
-* `isSelfClosing`: true if the tag is self-closing.
-
-#### `tagclose`
-
-Emitted when a closing tag is parsed. An object containing the `name` of the tag is passed.
-
-#### `processinginstruction`
-
-Emitted when a processing instruction (such as `<? contents ?>`) is parsed. An object with the `contents` of the processing instruction is passed.
-
-#### `text`
-
-Emitted when a text node between two tags is parsed. An object with the `contents` of the text node is passed. You might need to expand XML entities inside the contents of the text node, using `Saxophone.parseEntities`.
-
-#### `cdata`
-
-Emitted when a CDATA section (such as `<![CDATA[ contents ]]>`) is parsed. An object with the `contents` of the CDATA section is passed.
-
-#### `comment`
-
-Emitted when a comment (such as `<!-- contents -->`) is parsed. An object with the `contents` of the comment is passed.
-
-#### `error`
-
-Emitted when a parsing error is encountered while reading the XML stream such that the rest of the XML cannot be correctly interpreted:
-
-* when a DOCTYPE node is found (not supported yet);
-* when a comment node contains the `--` sequence;
-* when opening and closing tags are mismatched or missing;
-* when a tag name starts with white space;
-* when nodes are unclosed (missing their final `>`).
-
-Because this library's goal is not to provide accurate error reports, the passed error will only contain a short description of the syntax error (without giving the position, for example).
-
-#### `finish`
-
-Emitted after all events, without arguments.
+- **tagopen**: `['tagopen', tag-name, attr-string, is-self-closing]`.
+-- `attr-string` may be parsed with `parseAttrs` to convert it into a key/value object. Any leading or trailing whitespace will be trimmed off.
+-- `is-self-closing` will be either '/' (truish) if the tag is self-closing or '' (falsish) if it is not.
+- **tagclose**: `['tagclose', tag-name]`
+- **text**: `['text',content]`. Entities in the text may be parsed with the `parseEntities` function.
+- **cdata**: `['cdata',content]`
+- **commment**: `['comment',content]`
+- **processinginstruction**: `['processinginstruction',content]`. Content of the processing instruction is not parsed.
 
 ## Contributions
 
@@ -231,7 +92,8 @@ This is free and open source software. All contributions (even small ones) are w
 
 Thanks to:
 
-* [Norman Rzepka](https://github.com/normanrz) for implementing the streaming API and the check for opening and closing tags mismatch.
+* [Mattéo Delabre](https://github.com/matteodelabre) for Saxophone. The Saxophone parser is at the heart of this package.
+* [Norman Rzepka](https://github.com/normanrz) for the check for opening and closing tags mismatch.
 * [winston01](https://github.com/winston01) for spotting and fixing an error in the parser when a tag sits astride two chunks.
 
 ## License
