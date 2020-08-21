@@ -10,7 +10,7 @@ Async-saxophone was developed to assure that a new chunk of XML is not taken fro
 
 The async-saxophone parser is based upon the Saxophone parser and inherits its light weight and speed. It does not maintain document state nor check the validity of the document. Modifications to the Saxophone parser include structuring it as an async generator function, substituting `yield` for `emit`, expecting an input string or iterator as an argument, rather than being piped to, and representing each node as a tuple-like array.
 
-The parser does not parse the attribute string in a tag nor does it parse entities in text. `Saxophone`'s `parseAttrs` and `parseEntities` functions are exported as a convenience for parsing attribute strings into an object and for parsing entities.
+The parser does not parse the attribute string in a tag nor does it parse entities in text. `Saxophone`'s `parseAttrs` and `parseEntities` functions may be used to parse the attribute string or entities. To avoid unnecessary dependencies, `Saxophone` must be installed seperately if these functions are needed.
 
 ## Installation
 
@@ -21,7 +21,7 @@ To install with `npm`:
 $ npm install async-saxophone
 ```
 
-## Tests and coverage
+## Tests
 
 To run tests, use the following commands:
 
@@ -35,16 +35,18 @@ $ npm test
 ## Example
 
 ```js
-const {xmlNodeGenerator} = require('async-saxophone');
+const {makeAsyncXMLParser} = require('async-saxophone');
 const delay = ms => new Promise(_ => setTimeout(_, ms));
 
 const xml = '<root><example id="1" /><example id="2" /></root>'
 
 async function main() {
-    for await (let node of xmlNodeGenerator(xml)) {
+    const parser = makeAsyncXMLParser();
+    for await (let node of parser(xml)) {
         console.dir(node);
         await delay(500);
     }
+    console.log('done')
 }
 main().catch(console.error)
 ```
@@ -56,32 +58,35 @@ Output:
 [ 'tagopen', 'example', 'id="1"', '/' ]
 [ 'tagopen', 'example', 'id="2"', '/' ]
 [ 'tagclose', 'root' ]
+done
 ```
 
 ### Exports:
 
-`const {xmlNodeGenerator,parseAttrs,parseEntities}= require('async-saxophone');`
+`const {makeAsyncXMLParser} = require('async-saxophone');`
 
 
-- **`xmlNodeGenerator(iterator)`** is an async generator function.
-It takes as an argument any iterator over an XML document.
-It returns an async iterator over then nodes encountered as the document is parsed.
+* **`makeAsyncXMLParser(options)`** takes parser options and returns a generator function that will parse an XML document.
+    * `options` are detailed below.
+    * `parser(iterator)` is the async generator function returned from `makeAsyncXMLParser`.
+        * It takes as an argument any iterator over an XML document.
+        * It returns an async iterator over the nodes encountered as the document is parsed.
 
-- **parseAttrs**
-As a convenience, [Saxophone.parseAttrs](https://www.npmjs.com/package/saxophone#saxophoneparseattrsattrs) is exported by this package. It parses a string of XML attributes, such as would be output as a result of parsing an opening tag.
-
-- **parseEntities**
-As a convenience, [Saxophone.parseEntities](https://www.npmjs.com/package/saxophone#saxophoneparseentitiestext) is exported by this package. It expands all XML entities in a string to the characters represented by the entities.
+* **options**
+    * `include`: a list of node types to be output. See `AvailableNodes` above for a complete list. If option = `{include:['tagopen','tagclose']}`, for example, only opening and closing tags will be output. If `include` is not specified, all nodes will be output.
+    * `alwaysTagClose`: If a self-closing tag is encountered a `tagclose` node will be output
+    * `noEmptyText`: If truish, empty text nodes, or text that is all whitespace will not be output.
 
 ### Output:
 
-`xmlNodeGenerator` is an async generator function, it implements an iterator over the nodes encountered during parsing. The types of nodes and their representation is as follows:
+The parser returned from `makeAsyncXMLParser` is an async generator function. It takes an iterator as an argument and returns an async iterator over the nodes encountered during parsing. The types of nodes and their representation is as follows:
 
 - **tagopen**: `['tagopen', tag-name, attr-string, is-self-closing]`.
--- `attr-string` may be parsed with `parseAttrs` to convert it into a key/value object. Any leading or trailing whitespace will be trimmed off.
--- `is-self-closing` will be either '/' (truish) if the tag is self-closing or '' (falsish) if it is not.
+  - `tag-name` the tag's name, as found in the XML: <tag-name ...>
+  - `attr-string` everything between the tag name and `>` or `/>`. This string may be parsed with `Saxophone.parseAttrs` to convert it into a key/value object. Any leading or trailing whitespace will be trimmed off.
+  - `is-self-closing` will be either '/' (truish) if the tag is self-closing or '' (falsish) if it is not.
 - **tagclose**: `['tagclose', tag-name]`
-- **text**: `['text',content]`. Entities in the text may be parsed with the `parseEntities` function.
+- **text**: `['text',content]`. Entities in the text may be parsed with the `Saxophone.parseEntities` function.
 - **cdata**: `['cdata',content]`
 - **commment**: `['comment',content]`
 - **processinginstruction**: `['processinginstruction',content]`. Content of the processing instruction is not parsed.
@@ -92,9 +97,9 @@ This is free and open source software. All contributions (even small ones) are w
 
 Thanks to:
 
-* [Mattéo Delabre](https://github.com/matteodelabre) for Saxophone. The Saxophone parser is at the heart of this package.
-* [Norman Rzepka](https://github.com/normanrz) for the check for opening and closing tags mismatch.
-* [winston01](https://github.com/winston01) for spotting and fixing an error in the parser when a tag sits astride two chunks.
+* [Mattéo Delabre](https://github.com/matteodelabre) for Saxophone. The (modified) Saxophone parser is at the heart of this package.
+* [Norman Rzepka](https://github.com/normanrz) for the check in Saxophone for opening and closing tags mismatch.
+* [winston01](https://github.com/winston01) for spotting and fixing an error in the Saxophone parser when a tag sits astride two chunks.
 
 ## License
 
