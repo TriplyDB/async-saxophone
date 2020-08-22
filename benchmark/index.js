@@ -7,7 +7,8 @@ const path = require('path');
 const failsafe = require('./require-failsafe')();
 
 // benchmarked libraries
-const Saxophone = require('../lib');
+const {makeAsyncXMLParser} = require('../lib');
+const Saxophone = failsafe.require('saxophone');
 const EasySax = failsafe.require('easysax');
 const expat = failsafe.require('node-expat');
 const libxmljs = failsafe.require('libxmljs');
@@ -19,6 +20,14 @@ failsafe.commit();
 const xml = fs.readFileSync(path.join(__dirname, 'fixture.xml')).toString();
 
 (new Benchmark.Suite)
+    .add('asyncSaxophone', () => {
+        const parser = new makeAsyncXMLParser();
+        for (let node of parser(xml)) {
+            if (node[0] == 'tagopen') Saxophone.parseAttrs(node[2]);
+            else if (node[0] == 'text') Saxophone.parseEntities(node[1]);
+        }
+    })
+
     .add('Saxophone', () => {
         const parser = new Saxophone();
 
