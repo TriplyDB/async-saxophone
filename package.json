@@ -9,8 +9,7 @@
     "tape": "tape 'lib/**/*.test.js'",
     "test": "npm run --silent tape | faucet",
     "coverage": "nyc --reporter=html --reporter=text npm --silent run tape",
-    "coveralls": "nyc report --reporter=text-lcov | coveralls",
-    "benchmark": "node benchmark"
+    "coveralls": "nyc report --reporter=text-lcov | coveralls"
   },
   "nyc": {
     "exclude": [
