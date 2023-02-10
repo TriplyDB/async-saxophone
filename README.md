@@ -1,5 +1,17 @@
 # async-saxophone
 
+[![Not Maintained](https://img.shields.io/badge/Maintenance%20Level-Abandoned-orange.svg)](https://gist.github.com/cheerfulstoic/d107229326a01ff0f333a1d3476e068d)
+
+
+async-saxophone is **no longer being actively developed** and has been archived. 
+
+It was developed as a asynchronous replacement for saxophone, but has not kept up with changes to saxophone. If this is of interest, you probably need
+to examine how saxophone was made asynchronous and apply similar changes to saxophone's current code.
+You are still welcome to use it but you may want to check for any forks that are more actively maintained.
+If it is of value to you, you are welcome to fork it or start a new project and incorporate its code into your project.
+
+## Description
+
 Fast and lightweight asynchonous XML parser in pure JavaScript.
 
 Async-saxophone is based upon [Saxophone](https://github.com/matteodelabre/saxophone), which, in turn, is inspired by SAX parsers such as [sax-js](https://github.com/isaacs/sax-js) and [EasySax](https://github.com/vflash/easysax): unlike most XML parsers, but like Saxophone, async-saxophone does not create a Document Object Model ([DOM](https://en.wikipedia.org/wiki/Document_Object_Model)) tree as a result of parsing documents.
